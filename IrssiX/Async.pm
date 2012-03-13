@@ -3,11 +3,12 @@ package IrssiX::Async;
 use warnings;
 use strict;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use Carp qw(croak);
 use Errno;
 use POSIX ();
+use IO::Handle ();
 use Irssi ();
 
 use again 'IrssiX::Util' => qw(run_from_package puts);
@@ -192,11 +193,10 @@ sub run {
 
 		POSIX::_exit 0;
 	} else {
-		close $in_r;
-		close $out_w;
-		close $err_w;
-
 		$self->{_pid} = $pid;
+
+		close $_ for $in_r, $out_w, $err_w;
+		$in_w->blocking(0);
 
 		my $caller = $self->{_caller};
 
