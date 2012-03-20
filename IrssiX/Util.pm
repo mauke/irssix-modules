@@ -14,7 +14,7 @@ BEGIN {
 	;
 }
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use Exporter qw(import);
 our @EXPORT_OK = qw(
@@ -28,6 +28,8 @@ our @EXPORT_OK = qw(
 	find_caller
 	run_from_package
 	run_from_caller
+	is_loaded
+	require_script
 );
 
 sub esc {
@@ -137,6 +139,30 @@ sub run_from_caller {
 	run_from_package find_caller(1), @_
 }
 
+sub is_loaded {
+	my ($script) = @_;
+
+	# dirty hack
+	$script =~ s/^Irssi::Script:://;
+	$script =~ s/\..*\z//s;
+	$script =~ tr[a-zA-Z0-9_][_]c;
+
+	# dirtier hack
+	my $glob = $Irssi::Script::{$script . '::'} or return 0;
+	$glob = $glob->{IRSSI} or return 0;
+	%$glob or return 0;
+	1
+}
+
+sub require_script {
+	my ($script) = @_;
+
+	return if is_loaded $script;
+
+	@_ = "script load $script";
+	goto &Irssi::command;
+}
+
 1
 
 __END__
@@ -158,6 +184,8 @@ IrssiX::Util - various irssi utility functions
     find_caller
     run_from_package
     run_from_caller
+    is_loaded
+    require_script
   );
 
 =head1 DESCRIPTION
@@ -244,6 +272,15 @@ syntactically valid package name in Perl.
 =item run_from_caller CODE, ARGS
 
 Equivalent to C<run_from_package find_caller, CODE, ARGS>.
+
+=item is_loaded SCRIPT
+
+Returns true if SCRIPT is loaded, false otherwise.
+
+=item require_script SCRIPT
+
+Does nothing if SCRIPT is loaded. Otherwise it loads SCRIPT. Equivalent to
+C<< Irssi::command("script load SCRIPT") unless is_loaded SCRIPT; >>
 
 =back
 
