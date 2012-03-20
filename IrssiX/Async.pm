@@ -3,7 +3,7 @@ package IrssiX::Async;
 use warnings;
 use strict;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use Carp qw(croak);
 use Errno;
@@ -196,7 +196,7 @@ sub run {
 		$self->{_pid} = $pid;
 
 		close $_ for $in_r, $out_w, $err_w;
-		$in_w->blocking(0);
+		$_->blocking(0) for $in_w, $out_r, $err_r;
 
 		my $caller = $self->{_caller};
 
@@ -212,8 +212,12 @@ sub run {
 
 		my $tag_out;
 		$tag_out = run_from_package $caller, \&Irssi::input_add, fileno($out_r), Irssi::INPUT_READ, sub {
-			if (sysread $out_r, my $buf, 1024) {
+			my $n = sysread $out_r, my $buf, 1024;
+			if ($n) {
 				$self->_call_h(on_stdout => $buf);
+				return;
+			}
+			if (!defined($n) && ($!{EWOULDBLOCK} || $!{EAGAIN})) {
 				return;
 			}
 			run_from_package $caller, \&Irssi::input_remove, $tag_out;
@@ -225,8 +229,12 @@ sub run {
 
 		my $tag_err;
 		$tag_err = run_from_package $caller, \&Irssi::input_add, fileno($err_r), Irssi::INPUT_READ, sub {
-			if (sysread $err_r, my $buf, 1024) {
+			my $n = sysread $err_r, my $buf, 1024;
+			if ($n) {
 				$self->_call_h(on_stderr => $buf);
+				return;
+			}
+			if (!defined($n) && ($!{EWOULDBLOCK} || $!{EAGAIN})) {
 				return;
 			}
 			run_from_package $caller, \&Irssi::input_remove, $tag_err;
